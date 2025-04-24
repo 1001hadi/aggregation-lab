@@ -4,6 +4,7 @@ import {
   getLearnerAvg,
   getTotalLearnerAvg,
   getGradeStats,
+  getGradeByClass,
 } from "../controllers/routesLogic.mjs";
 
 const router = express.Router();

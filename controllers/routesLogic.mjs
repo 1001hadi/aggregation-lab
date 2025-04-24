@@ -21,51 +21,77 @@ export async function getAvg(req, res) {
   res.json(result);
 }
 
+////////////// For LAB //////////////////////
 // step 3 create a GET route at /grades/stats
+
 export async function getGradeStats(req, res) {
   let collection = await db.collection("grades");
   try {
     const stats = await collection
       .aggregate([
-        // calculate the weighted average for each learner
-        {
-          $unwind: "$scores",
-        },
         {
           $group: {
             _id: "$learner_id",
-            weightedAvg: {
-              $sum: { $multiply: ["$scores.score", "$scores.weight"] },
-            },
-            totalWeight: { $sum: "$scores.weight" },
+            allScores: { $push: "$scores" },
           },
         },
+
         {
           $project: {
             _id: 0,
             learner_id: "$_id",
-            weightedAvg: {
-              $cond: [
-                { $eq: ["$totalWeight", 0] },
-                0,
-                { $divide: ["$weightedAvg", "$totalWeight"] },
+            examAvg: {
+              $avg: {
+                $filter: {
+                  input: "$allScores",
+                  as: "score",
+                  cond: { $eq: ["$$score.type", "exam"] },
+                },
+              },
+            },
+            quizAvg: {
+              $avg: {
+                $filter: {
+                  input: "$allScores",
+                  as: "score",
+                  cond: { $eq: ["$$score.type", "quiz"] },
+                },
+              },
+            },
+            homeworkAvg: {
+              $avg: {
+                $filter: {
+                  input: "$allScores",
+                  as: "score",
+                  cond: { $eq: ["$$score.type", "homework"] },
+                },
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            learner_id: 1,
+            overallAvg: {
+              $sum: [
+                { $multiply: ["$examAvg", 0.5] },
+                { $multiply: ["$quizAvg", 0.3] },
+                { $multiply: ["$homeworkAvg", 0.2] },
               ],
             },
           },
         },
-        // count the number of learners with an average above 70
+
         {
           $group: {
             _id: null,
             above70Count: {
-              $sum: {
-                $cond: [{ $gt: ["$weightedAvg", 70] }, 1, 0],
-              },
+              $sum: { $cond: [{ $gt: ["$overallAvg", 70] }, 1, 0] },
             },
             totalLearners: { $sum: 1 },
           },
         },
-        // calculate the percentage
+
         {
           $project: {
             _id: 0,
@@ -94,9 +120,14 @@ export async function getGradeStats(req, res) {
       res.json({ above70Count: 0, totalLearners: 0, percentageAbove70: 0 });
     }
   } catch (err) {
-    console.error("Error getting grade:", err);
+    console.error("Error getting grade: ", err);
   }
 }
+
+//////////// 2nd Rout for LAB ///////////////
+// get specific learner with his id
+
+
 
 // sandBox get learner average solution
 export async function getLearnerAvg(req, res) {
